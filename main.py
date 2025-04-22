@@ -1,18 +1,18 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-import requests, os
+from sqlalchemy.orm import Session
+from database import Base, engine, SessionLocal
+from models import Athlete
+from utils import refresh_access_token, get_activities
+from datetime import datetime
+import os, requests
 from dotenv import load_dotenv
-
 load_dotenv()
 
-CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
-CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("REDIRECT_URI")
-
+Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
-# CORS para permitir requisições do frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,12 +21,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Banco de dados temporário (em memória para exemplo)
-users = {}
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
+CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
+REDIRECT_URI = os.getenv("REDIRECT_URI")
 
 @app.get("/")
-def read_root():
-    return {"message": "API do Ranking Strava funcionando!"}
+def root():
+    return {"message": "API do Ranking Strava com PostgreSQL está rodando!"}
 
 @app.get("/auth/strava")
 def auth_strava():
@@ -34,7 +42,7 @@ def auth_strava():
     return RedirectResponse(url)
 
 @app.get("/auth/callback")
-def callback(request: Request):
+def callback(request: Request, db: Session = Depends(get_db)):
     code = request.query_params.get("code")
     if not code:
         return HTMLResponse("<h3>Erro: código não encontrado</h3>")
@@ -44,24 +52,42 @@ def callback(request: Request):
         "client_secret": CLIENT_SECRET,
         "code": code,
         "grant_type": "authorization_code"
-    })
+    }).json()
 
-    data = token_response.json()
-    if 'athlete' in data:
-        athlete = data['athlete']
-        users[athlete['id']] = {
-            "name": f"{athlete['firstname']} {athlete['lastname']}",
-            "refresh_token": data['refresh_token'],
-            "access_token": data['access_token'],
-        }
+    if "athlete" in token_response:
+        athlete = token_response["athlete"]
+        strava_id = athlete["id"]
+        existing = db.query(Athlete).filter_by(strava_id=strava_id).first()
+        if not existing:
+            novo = Athlete(
+                strava_id=strava_id,
+                firstname=athlete["firstname"],
+                lastname=athlete["lastname"],
+                refresh_token=token_response["refresh_token"]
+            )
+            db.add(novo)
+            db.commit()
         return HTMLResponse(f"<h2>Autorizado com sucesso!</h2><p>{athlete['firstname']} agora está participando do ranking.</p>")
     return HTMLResponse("<h3>Erro ao autorizar com a Strava</h3>")
 
 @app.get("/ranking")
-def get_ranking():
-    # Simula um ranking básico usando os dados coletados
-    ranking = [
-        {"atleta": user["name"], "total_km": 42.5 + idx * 7.3}
-        for idx, user in enumerate(users.values())
-    ]
-    return ranking
+def ranking(db: Session = Depends(get_db)):
+    atletas = db.query(Athlete).all()
+    resultado = []
+    for atleta in atletas:
+        token_data = refresh_access_token(atleta.refresh_token)
+        access_token = token_data.get("access_token")
+        atividades = get_activities(access_token)
+        total_km = 0
+        for atividade in atividades:
+            if atividade["type"] in ["Run", "Walk"]:
+                start_date = datetime.strptime(atividade["start_date"], "%Y-%m-%dT%H:%M:%SZ")
+                now = datetime.utcnow()
+                if start_date.month == now.month and start_date.year == now.year:
+                    total_km += atividade["distance"] / 1000
+        resultado.append({
+            "atleta": f"{atleta.firstname} {atleta.lastname}",
+            "total_km": round(total_km, 2)
+        })
+    resultado.sort(key=lambda x: x["total_km"], reverse=True)
+    return resultado
