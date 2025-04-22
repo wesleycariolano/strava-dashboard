@@ -67,7 +67,16 @@ def callback(request: Request, db: Session = Depends(get_db)):
             )
             db.add(novo)
             db.commit()
-        return HTMLResponse(f"<h2>Autorizado com sucesso!</h2><p>{athlete['firstname']} agora está participando do ranking.</p>")
+
+        # 🔥 Aqui salvamos o nome no localStorage via JS
+        return HTMLResponse(f"""
+        <h2>Autorizado com sucesso!</h2>
+        <p>{athlete['firstname']} agora está participando do ranking.</p>
+        <script>
+          localStorage.setItem('athlete_name', '{athlete["firstname"]} {athlete["lastname"]}');
+        </script>
+        """)
+    
     return HTMLResponse("<h3>Erro ao autorizar com a Strava</h3>")
 
 @app.get("/ranking")
