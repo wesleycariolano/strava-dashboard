@@ -2,7 +2,8 @@ import os
 from fastapi import FastAPI, Request, Query
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, func, desc
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float
+from sqlalchemy import func, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -241,7 +242,7 @@ def get_ranking(
         q = q.filter(Activity.type == type.capitalize())
 
     q = q.group_by(Activity.athlete_id, Athlete.firstname, Athlete.lastname, Athlete.profile_picture
-    ).order_by(db.desc("total_km"))
+    ).order_by(order_by(desc("total_km"))
 
     results = q.all()
     db.close()
