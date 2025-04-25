@@ -220,7 +220,7 @@ def get_ranking(
     db = SessionLocal()
     # Converter as datas para datetime
     start_date = datetime.strptime(start, "%Y-%m-%d")
-    end_date = datetime.strptime(end, "%Y-%m-%d")
+    end_date = datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)
     
     # Montar query
     q = db.query(
@@ -231,7 +231,7 @@ def get_ranking(
         Athlete, Athlete.strava_id == Activity.athlete_id
     ).filter(
         Activity.start_date >= start_date,
-        Activity.start_date <= end_date
+        Activity.start_date < end_date
     )
 
     if type and type != "all":
