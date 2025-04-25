@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 import requests
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
+from collections import defaultdict
 
 load_dotenv()
 
@@ -212,37 +213,25 @@ def callback(request: Request):
 
 @app.get("/ranking")
 def get_ranking(
-    year: Optional[int] = Query(None), 
-    month: Optional[int] = Query(None), 
-    week: Optional[int] = Query(None),
-    type: Optional[str] = Query(None)
+    start: str = Query(..., description="Data inicial no formato YYYY-MM-DD"),
+    end: str = Query(..., description="Data final no formato YYYY-MM-DD"),
+    type: Optional[str] = Query("all", description="Tipo de atividade: run, walk ou all")
 ):
     db = SessionLocal()
-    now = datetime.now()
-    if not year:
-        year = now.year
-    if not month:
-        month = now.month
-
-    # Filtro de datas
-    if week:
-        week_ranges = get_week_ranges(year, month)
-        if week-1 < len(week_ranges):
-            start, end = week_ranges[week-1]
-        else:
-            start, end = get_month_range(year, month)
-    else:
-        start, end = get_month_range(year, month)
-
-    # Query
+    # Converter as datas para datetime
+    start_date = datetime.strptime(start, "%Y-%m-%d")
+    end_date = datetime.strptime(end, "%Y-%m-%d")
+    
+    # Montar query
     q = db.query(
         Athlete.firstname, Athlete.lastname, Athlete.profile_picture,
         Activity.athlete_id,
-        func.sum(Activity.distance).label("total_km")   # CERTO!
-).join(Athlete, Athlete.strava_id == Activity.athlete_id
+        func.sum(Activity.distance).label("total_km")
+    ).join(
+        Athlete, Athlete.strava_id == Activity.athlete_id
     ).filter(
-        Activity.start_date >= start,
-        Activity.start_date <= end
+        Activity.start_date >= start_date,
+        Activity.start_date <= end_date
     )
 
     if type and type != "all":
@@ -277,6 +266,60 @@ def get_weeks(year: Optional[int] = None, month: Optional[int] = None):
         for idx, (start, end) in enumerate(week_ranges)
     ]
     return weeks
+
+@app.get("/ranking_weekly")
+def get_ranking_weekly(
+    start: str = Query(..., description="Data inicial no formato YYYY-MM-DD"),
+    end: str = Query(..., description="Data final no formato YYYY-MM-DD"),
+    type: Optional[str] = Query("all", description="Tipo de atividade: run, walk ou all")
+):
+    db = SessionLocal()
+    start_date = datetime.strptime(start, "%Y-%m-%d")
+    end_date = datetime.strptime(end, "%Y-%m-%d")
+
+    # Monta lista de intervalos semanais
+    week_ranges = []
+    cur = start_date
+    while cur <= end_date:
+        week_start = cur
+        week_end = cur + timedelta(days=6 - cur.weekday())
+        if week_end > end_date:
+            week_end = end_date
+        week_ranges.append((week_start, week_end))
+        cur = week_end + timedelta(days=1)
+
+    results = []
+    for idx, (ws, we) in enumerate(week_ranges):
+        q = db.query(
+            Athlete.firstname, Athlete.lastname, Athlete.profile_picture,
+            Activity.athlete_id,
+            func.sum(Activity.distance).label("total_km")
+        ).join(
+            Athlete, Athlete.strava_id == Activity.athlete_id
+        ).filter(
+            Activity.start_date >= ws,
+            Activity.start_date <= we
+        )
+        if type and type != "all":
+            q = q.filter(Activity.type == type.capitalize())
+        q = q.group_by(Activity.athlete_id, Athlete.firstname, Athlete.lastname, Athlete.profile_picture
+        ).order_by(desc("total_km"))
+        week_result = q.all()
+        week_label = f"Semana {idx+1} ({ws.strftime('%d/%m/%Y')} - {we.strftime('%d/%m/%Y')})"
+        week_ranking = [
+            {
+                "atleta": f"{firstname} {lastname}",
+                "profile": profile_picture,
+                "total_km": round((total_km or 0) / 1000, 2)
+            }
+            for firstname, lastname, profile_picture, athlete_id, total_km in week_result
+        ]
+        results.append({
+            "label": week_label,
+            "ranking": week_ranking
+        })
+    db.close()
+    return results
 
 @app.get("/last_update")
 def last_update():
