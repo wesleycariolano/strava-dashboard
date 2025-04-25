@@ -242,7 +242,7 @@ def get_ranking(
         q = q.filter(Activity.type == type.capitalize())
 
     q = q.group_by(Activity.athlete_id, Athlete.firstname, Athlete.lastname, Athlete.profile_picture
-    ).order_by(order_by(desc("total_km"))
+    ).order_by(desc("total_km"))
 
     results = q.all()
     db.close()
