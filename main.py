@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float
 from sqlalchemy import func, desc
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import BigInteger
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import requests
@@ -37,8 +38,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Models
 class Athlete(Base):
     __tablename__ = "athletes"
-    id = Column(Integer, primary_key=True, index=True)
-    strava_id = Column(Integer, unique=True, nullable=False)
+    id = Column(BigInteger, primary_key=True, index=True)
+    strava_id = Column(BigInteger, unique=True, nullable=False)
     firstname = Column(String)
     lastname = Column(String)
     profile_picture = Column(String)
@@ -49,9 +50,9 @@ class Athlete(Base):
 
 class Activity(Base):
     __tablename__ = "activities"
-    id = Column(Integer, primary_key=True, index=True)
-    strava_id = Column(Integer, unique=True, nullable=False)
-    athlete_id = Column(Integer)
+    id = Column(BigInteger, primary_key=True, index=True)
+    strava_id = Column(BigInteger, unique=True, nullable=False)
+    athlete_id = Column(BigInteger)
     name = Column(String)
     type = Column(String)
     distance = Column(Float) # in meters
