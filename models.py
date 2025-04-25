@@ -11,7 +11,7 @@ class Athlete(Base):
     strava_id = Column(Integer, unique=True, nullable=False)
     firstname = Column(String)
     lastname = Column(String)
-    profile = Column(String)  # url da foto do strava
+    profile_picture = Column(String)  # url da foto do strava
     access_token = Column(String)
     refresh_token = Column(String)
     token_expires_at = Column(Integer)
