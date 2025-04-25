@@ -99,10 +99,16 @@ def refresh_access_token(athlete, session):
         session.commit()
     return athlete.access_token
 
-def import_activities(session, athlete: Athlete):
-    # Só atualiza se passou 1 hora da última importação
+def import_activities(session, athlete: 'Athlete'):
     now = datetime.now(timezone.utc)
-    if not athlete.last_activities_update or (now - athlete.last_activities_update) > timedelta(hours=1):
+    last_update = athlete.last_activities_update
+    i# Corrige last_update para garantir que tem timezone
+    if last_update is None:
+        last_update = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    elif last_update.tzinfo is None:
+        last_update = last_update.replace(tzinfo=timezone.utc)
+
+    if (now - last_update) > timedelta(hours=1):
         token = refresh_access_token(athlete, session)
         page = 1
         per_page = 100
