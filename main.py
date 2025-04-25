@@ -230,8 +230,8 @@ def get_ranking(
     q = db.query(
         Athlete.firstname, Athlete.lastname, Athlete.profile_picture,
         Activity.athlete_id,
-        db.func.sum(Activity.distance).label("total_km")
-    ).join(Athlete, Athlete.strava_id == Activity.athlete_id
+        func.sum(Activity.distance).label("total_km")   # CERTO!
+).join(Athlete, Athlete.strava_id == Activity.athlete_id
     ).filter(
         Activity.start_date >= start,
         Activity.start_date <= end
