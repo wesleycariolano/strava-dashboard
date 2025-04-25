@@ -40,7 +40,7 @@ class Athlete(Base):
     strava_id = Column(Integer, unique=True, nullable=False)
     firstname = Column(String)
     lastname = Column(String)
-    profile = Column(String)
+    profile_picture = Column(String)
     refresh_token = Column(String)
     access_token = Column(String)
     token_expires_at = Column(Integer)
