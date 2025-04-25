@@ -102,7 +102,7 @@ def refresh_access_token(athlete, session):
 def import_activities(session, athlete: 'Athlete'):
     now = datetime.now(timezone.utc)
     last_update = athlete.last_activities_update
-    i# Corrige last_update para garantir que tem timezone
+    # Corrige last_update para garantir que tem timezone
     if last_update is None:
         last_update = datetime(2000, 1, 1, tzinfo=timezone.utc)
     elif last_update.tzinfo is None:
