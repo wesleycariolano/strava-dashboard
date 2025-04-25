@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, Request, Query
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, func
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, func, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
