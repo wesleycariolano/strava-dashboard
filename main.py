@@ -189,7 +189,7 @@ def callback(request: Request):
         else:
             db_athlete.firstname = athlete['firstname']
             db_athlete.lastname = athlete['lastname']
-            db_athlete.profile_picture = athlete['profile']
+            db_athlete.profile_picture = athlete.get('profile', '')
             db_athlete.refresh_token = data['refresh_token']
             db_athlete.access_token = data['access_token']
             db_athlete.token_expires_at = data['expires_at']
@@ -226,31 +226,32 @@ def get_ranking(
     else:
         start, end = get_month_range(year, month)
 
+    # Query
     q = db.query(
-        Athlete.firstname, Athlete.lastname, athlete.profile_picture,
+        Athlete.firstname, Athlete.lastname, Athlete.profile_picture,
         Activity.athlete_id,
-        func.sum(Activity.distance).label("total_km")
+        db.func.sum(Activity.distance).label("total_km")
     ).join(Athlete, Athlete.strava_id == Activity.athlete_id
     ).filter(
-        Activity.start_date_local >= start,
-        Activity.start_date_local <= end
+        Activity.start_date >= start,
+        Activity.start_date <= end
     )
 
     if type and type != "all":
         q = q.filter(Activity.type == type.capitalize())
 
-    q = q.group_by(Activity.athlete_id, Athlete.firstname, Athlete.lastname, athlete.profile_picture
-    ).order_by(func.sum(Activity.distance).desc())
+    q = q.group_by(Activity.athlete_id, Athlete.firstname, Athlete.lastname, Athlete.profile_picture
+    ).order_by(db.desc("total_km"))
 
     results = q.all()
     db.close()
     return [
         {
             "atleta": f"{firstname} {lastname}",
-            "profile": profile,
+            "profile": profile_picture,
             "total_km": round((total_km or 0) / 1000, 2)
         }
-        for firstname, lastname, profile, athlete_id, total_km in results
+        for firstname, lastname, profile_picture, athlete_id, total_km in results
     ]
 
 @app.get("/weeks")
